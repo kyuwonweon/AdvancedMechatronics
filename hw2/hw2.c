@@ -1,0 +1,55 @@
+#include <stdio.h>
+#include "pico/stdlib.h"
+#include "hardware/pwm.h"
+#include "hardware/adc.h"
+
+void setServo(int angle);
+
+#define PWMPIN 16
+
+bool timer_interrupt_function(struct repeating_timer *t){
+    uint16_t result = adc_read();
+    printf("%f\r\n", (float)result/4095*3.3);
+    return true;
+}
+
+int main()
+{
+    stdio_init_all();
+
+    struct repeating_timer timer;
+    add_repeating_timer_ms(-100, timer_interrupt_function, NULL, &timer);
+    adc_init();
+    adc_gpio_init(26);
+    adc_select_input(0);
+
+    gpio_set_function(PWMPIN, GPIO_FUNC_PWM);
+    uint slice_num = pwm_gpio_to_slice_num(PWMPIN);
+    float div = 50;
+    pwm_set_clkdiv(slice_num,div); // set clock speed
+    uint16_t wrap = 60000;
+
+    pwm_set_wrap(slice_num, wrap);
+    pwm_set_enabled(slice_num, true);
+    pwm_set_gpio_level(PWMPIN, 0);
+
+    while (true) {
+        int i = 0;
+        for (i=10; i<170; i++){
+            setServo(i);
+            sleep_ms(10);
+        }
+        for (i=170; i>10; i--){
+            setServo(i);
+            sleep_ms(10);
+        }
+    }
+}
+
+void setServo(int angle) {
+    // Ensure angle stays within 0-180
+    if (angle < 0) angle = 0;
+    if (angle > 180) angle = 180;
+    uint16_t level = (uint16_t)(1500 + (angle / 180.0f) * 6000);
+    pwm_set_gpio_level(PWMPIN, level);
+}
