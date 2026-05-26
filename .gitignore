@@ -1,0 +1,25 @@
+# Eclipse/STM32CubeIDE workspace metadata
+.metadata/
+**/.metadata/
+
+# STM32CubeIDE build output
+**/Debug/
+**/Release/
+
+# Pico CMake build output
+**/build/
+
+# Object files and binaries
+*.o
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+*.d
+*.su
+*.cyclo
+
+# IDE settings
+**/.settings/
+**/.cproject

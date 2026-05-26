@@ -2,7 +2,7 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : Main program body
+  * @brief          : Main program bodywhen
   ******************************************************************************
   * @attention
   *
@@ -18,10 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,6 +41,8 @@
 COM_InitTypeDef BspCOMInit;
 __IO uint32_t BspButtonState = BUTTON_RELEASED;
 
+UART_HandleTypeDef huart1;
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -51,6 +50,7 @@ __IO uint32_t BspButtonState = BUTTON_RELEASED;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -89,6 +89,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -124,43 +125,39 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  static uint32_t lastPrint = 0;
+
   while (1)
   {
+    /* Relay: Virtual COM (PC) --> Pico via USART1 */
+    uint8_t vcByte;
+    if (HAL_UART_Receive(&hcom_uart[COM1], &vcByte, 1, 5) == HAL_OK) {
+      HAL_UART_Transmit(&huart1, &vcByte, 1, 100);
+    }
 
-    /* -- Sample board code for User push-button in interrupt mode ---- */
+    /* Relay: Pico via USART1 --> Virtual COM (PC) */
+    uint8_t picoByte;
+    if (HAL_UART_Receive(&huart1, &picoByte, 1, 5) == HAL_OK) {
+      printf("%c", (char)picoByte);
+    }
+
+    /* Heartbeat to Virtual COM every 2 seconds */
+    if (HAL_GetTick() - lastPrint >= 2000) {
+      lastPrint = HAL_GetTick();
+      printf("[STM32 alive]\r\n");
+    }
+
+    /* Button: send a numbered test message to Pico */
     if (BspButtonState == BUTTON_PRESSED)
     {
-      /* Update button state */
       BspButtonState = BUTTON_RELEASED;
-      /* -- Sample board code to toggle leds ---- */
       BSP_LED_Toggle(LED_GREEN);
       BSP_LED_Toggle(LED_BLUE);
-      printf("hello\r\n");
-      char m[100];
-      int number = 5;
-      sprintf(m,"hello %d\r\n",number);
-      HAL_UART_Transmit(huart1, m, strlen(m), 10000)
-
-      int rxNumber;
-      char rxMessage[100];
-      char buffer[1000];
-      int index = 0;
-
-      HAUL_UART_Recieve(huart1, rxMessage, 100, 10);
-      for (i=0; j< strlen(rxMessage); i++){
-    	  if (rxMessage[i] == '\n'){
-    		  sscanf(buffer, "%d", &rxNumber);
-    	  }
-    	  else {
-    		  buffer[index] = rxMessage[i];
-    		  index++;
-    		  if (index == 1000){
-    			  idex = 0;
-    		  }
-    	  }
-      }
-
-      /* ..... Perform your action ..... */
+      static int sendCount = 0;
+      char m[32];
+      sprintf(m, "hello %d\r\n", sendCount++);
+      printf("Sending: %s", m);
+      HAL_UART_Transmit(&huart1, (uint8_t*)m, strlen(m), 1000);
     }
     /* USER CODE END WHILE */
 
@@ -205,6 +202,54 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart1.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart1, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart1, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
 }
 
 /**
